@@ -1,69 +1,67 @@
-const express = require('express');
-const router  = express.Router();
-const bcrypt  = require('bcryptjs');
-const jwt     = require('jsonwebtoken');
-const User    = require('../models/User');
+const API_URL = "http://localhost:5000/api/auth";
 
 // ── SIGNUP ──
-router.post('/signup', async (req, res) => {
-  try {
-    const { name, email, password, blood, city, area } = req.body;
+const signupForm = document.getElementById("signupForm");
+if (signupForm) {
+  signupForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ msg: 'Email already registered.' });
+    const locationVal = document.getElementById("location").value.split(",");
+    const city = locationVal[0].trim();
+    const area = locationVal[1] ? locationVal[1].trim() : "";
 
-    const hashed = await bcrypt.hash(password, 10);
-
-    const user = new User({
-      name,
-      email,
-      password: hashed,
-      bloodGroup: blood,
+    const data = {
+      name:     document.getElementById("name").value,
+      email:    document.getElementById("email").value,
+      password: document.getElementById("password").value,
+      blood:    document.getElementById("bloodGroup").value,
       city,
-      area,
-      location: `${city}${area ? ', ' + area : ''}`,
-      isAvailable: true
-    });
+      area
+    };
 
-    await user.save();
-    res.json({ msg: 'Signup successful. Please login.' });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Server error. Try again.' });
-  }
-});
+    try {
+      const res    = await fetch(`${API_URL}/signup`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(data)
+      });
+      const result = await res.json();
+      if (!res.ok) return alert(result.msg);
+      alert("✅ Signup successful! Please login.");
+      window.location.href = "login.html";
+    } catch (err) {
+      alert("❌ Server error. Make sure backend is running.");
+    }
+  });
+}
 
 // ── LOGIN ──
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
+const loginForm = document.getElementById("loginForm");
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ msg: 'Invalid email or password.' });
+    const data = {
+      email:    document.getElementById("email").value,
+      password: document.getElementById("password").value
+    };
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: 'Invalid email or password.' });
+    try {
+      const res    = await fetch(`${API_URL}/login`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(data)
+      });
+      const result = await res.json();
+      if (!res.ok) return alert(result.msg);
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      localStorage.setItem("token", result.token);
+      localStorage.setItem("user",  JSON.stringify(result.user));
+      localStorage.setItem("isAvailable", result.user.isAvailable !== false ? "true" : "false");
 
-    res.json({
-      token,
-      user: {
-        id:          user._id,
-        name:        user.name,
-        email:       user.email,
-        bloodGroup:  user.bloodGroup,
-        location:    user.location,
-        city:        user.city,
-        isAvailable: user.isAvailable
-      }
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Server error. Try again.' });
-  }
-});
-
-module.exports = router;
+      window.location.href = "dashboard.html";
+    } catch (err) {
+      alert("❌ Server error. Make sure backend is running.");
+    }
+  });
+}
